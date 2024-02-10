@@ -1,0 +1,29 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-west-1",
+      "eventTime": "2023-09-13T19:22:16.970Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": "[Object]",
+      "requestParameters": "[Object]",
+      "responseElements": "[Object]",
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "tf-s3-lambda-20230913192018018000000001",
+        "bucket": {
+          "name": "aiai-stage-media-in-eagle",
+          "ownerIdentity": { "principalId": "AKWUTAQF8PNIL" },
+          "arn": "arn:aws:s3:::aiai-stage-media-in-eagle"
+        },
+        "object": {
+          "key": "uploads/110.006.2018_ELA2_Year2_20180205.csv",
+          "size": 224,
+          "eTag": "2c340a8d2be5cf3bf8071fda64f1a71d",
+          "sequencer": "0065020E2DDC97F995"
+        }
+      }
+    }
+  ]
+}

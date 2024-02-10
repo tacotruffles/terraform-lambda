@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "s3:*",
+        "s3-object-lambda:*"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${src_bucket_arn}",
+        "${src_bucket_arn}/*",
+        "arn:aws:s3:::uva-uploaded-videos",
+        "arn:aws:s3:::uva-uploaded-videos/*"
+      ]
+    }
+  ]
+}

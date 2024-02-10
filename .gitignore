@@ -1,0 +1,10 @@
+# File System
+.DS_Store
+
+# DevOps
+
+# Need empty build folder to keep terraform happy
+build/*
+!build/.gitkeep 
+.env*
+!env.example

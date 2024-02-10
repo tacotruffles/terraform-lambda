@@ -1,0 +1,104 @@
+name: destroy-v1
+
+on:
+  push:
+    branches: [ 'destroy-stage', 'destroy-prod' ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Python Config
+      PYTHON_VERSION: 3.8
+
+      # Terraform Configs
+      terraform-directory: terraform
+      asset-directory: matrixIngestor
+      matrixIngestor-dir: matrixIngestor
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Get Branch Name
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}})" >> $GITHUB_ENV
+
+      - name: Extract stage from Branch Name and Github SSH url
+        run: |
+          echo "PHASE=$(echo ${{ env.BRANCH_NAME }} | sed "s/destroy-//")" >> $GITHUB_ENV
+
+      - name: Checkout ${{ env.PHASE }} branch, triggered via ${{ github.event_name }}
+        uses: actions/checkout@v3
+
+      - name: Determine which LAMBDA_<STAGE>_DOTENV secret JSON to read in
+        id: vars
+        run: |
+          branch=${{ env.PHASE }}
+          echo "LAMBDA_DOTENV=LAMBDA_${branch^^}_DOTENV" >> $GITHUB_OUTPUT
+
+      - name: Eject .env Values From Repos Secrets
+        run: echo "${{ secrets[steps.vars.outputs.LAMBDA_DOTENV] }}" > .env
+        working-directory: ${{ env.matrixIngestor-dir }}
+
+      - name: Stage Terraform Config File for Ingestion 
+        run: cp terraform/tf.cfg terraform/.env
+  
+      - name: Load Terraform Config File
+        uses: xom9ikk/dotenv@v2
+        with:
+          path: terraform
+          # load-mode: strict
+      
+      - name: AWS Environment
+        run: |
+          echo "AWS Profile: ${{ env.AWS_PROFILE }}"
+          echo "AWS Region: ${{ env.AWS_REGION }}"
+          echo "Prefix: ${{ env.PREFIX }}"
+          echo "Stage: ${{ env.STAGES }}"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Add profile credentials to ~/.aws/credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.2
+          terraform_wrapper: false # to get jq to play nice
+  
+      - name: Terraform Init
+        run: ./tf.sh init ${{ env.PHASE }}
+        working-directory: ${{ env.terraform-directory }}/${{ env.asset-directory }}
+      
+      # Thread Terraform Outputs to .env file
+      # - name: Terraform Config (.env)
+      #   run: ./tf.sh env ${{ env.PHASE }}
+      #   working-directory: ${{ env.terraform-directory }}/${{ env.asset-directory }}
+
+      - name: Terraform Validation
+        run: terraform validate
+        working-directory: ${{ env.terraform-directory }}/${{ env.asset-directory }}
+
+      # Make sure PYTHON_VERSION matches lambda's runtime setting in variables.tf
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Package Python Dependencies for Chunk Processor Lambda Layer
+        run: ./build.sh ${{ env.matrixIngestor-dir }}
+        working-directory: ${{ env.matrixIngestor-dir }}
+
+      - name: Terraform Destroy
+        id: destroy
+        run: ./tf.sh destroy ${{ env.PHASE }}
+        working-directory: ${{env.terraform-directory}}/${{ env.asset-directory }}
