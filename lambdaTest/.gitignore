@@ -5,4 +5,4 @@ __pycache__
 layer/*
 !layer/.gitkeep 
 .env*
-!env.example
+!.env.example
